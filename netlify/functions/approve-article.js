@@ -1,8 +1,9 @@
 // netlify/functions/approve-article.js
 //
 // Se activa cuando Antonio hace clic en el botón "Aprobar y publicar" del
-// correo. Verifica el token firmado, publica el borrador en WordPress y
-// muestra una página de confirmación simple.
+// correo. Verifica el token firmado, mueve el borrador de "ericson-drafts"
+// a "ericson-published" (queda visible en blog.ericson-laboratoire.com.mx),
+// actualiza el índice del blog, y muestra una página de confirmación.
 //
 // GET /.netlify/functions/approve-article?id=<uuid>&token=<hmac>
 
@@ -20,8 +21,8 @@ exports.handler = async (event) => {
     return htmlResponse(403, "Este link no es válido o ya expiró.");
   }
 
-  const store = getStore("ericson-drafts");
-  const draft = await store.get(id, { type: "json" });
+  const draftsStore = getStore("ericson-drafts");
+  const draft = await draftsStore.get(id, { type: "json" });
 
   if (!draft) {
     return htmlResponse(
@@ -30,42 +31,47 @@ exports.handler = async (event) => {
     );
   }
 
-  const { title, article_html, slug, meta_description } = draft;
-
-  const auth = Buffer.from(
-    `${process.env.WP_USER}:${process.env.WP_APP_PASSWORD}`
-  ).toString("base64");
+  const { title, article_html, slug, meta_description, keyword } = draft;
 
   try {
-    const response = await fetch(
-      `${process.env.WP_BASE_URL}/wp-json/wp/v2/posts`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${auth}`,
-        },
-        body: JSON.stringify({
-          title,
-          slug,
-          content: article_html,
-          status: "publish",
-          excerpt: meta_description || "",
-        }),
-      }
-    );
+    const publishedStore = getStore("ericson-published");
 
-    if (!response.ok) {
-      const errText = await response.text();
-      return htmlResponse(502, `Error al publicar en WordPress: ${errText}`);
+    // Evita colisión de slugs
+    let finalSlug = slug;
+    let attempt = 1;
+    while (await publishedStore.get(finalSlug)) {
+      attempt += 1;
+      finalSlug = `${slug}-${attempt}`;
     }
 
-    const post = await response.json();
-    await store.delete(id);
+    const published_at = new Date().toISOString();
+
+    await publishedStore.setJSON(finalSlug, {
+      title,
+      article_html,
+      meta_description,
+      keyword,
+      published_at,
+    });
+
+    // Actualiza el índice del blog
+    const index = (await publishedStore.get("_index", { type: "json" })) || [];
+    index.push({
+      slug: finalSlug,
+      title,
+      meta_description,
+      date: published_at.slice(0, 10),
+    });
+    await publishedStore.setJSON("_index", index);
+
+    await draftsStore.delete(id);
+
+    const siteUrl = process.env.BLOG_BASE_URL || process.env.URL || "";
+    const liveUrl = `${siteUrl}/blog/${finalSlug}`;
 
     return htmlResponse(
       200,
-      `✅ Publicado correctamente.<br/><a href="${post.link}" style="color:#b8935a;">Ver artículo en vivo</a>`,
+      `✅ Publicado correctamente.<br/><a href="${liveUrl}" style="color:#b8935a;">Ver artículo en vivo</a>`,
       true
     );
   } catch (err) {

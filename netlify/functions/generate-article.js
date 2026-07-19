@@ -11,7 +11,7 @@
 // Env vars requeridas en Netlify (Site settings > Environment variables):
 //   ANTHROPIC_API_KEY
 
-const { getStore } = require("@netlify/blobs");
+const { getBlobStore } = require("./_lib/store");
 const crypto = require("crypto");
 const { sign } = require("./_lib/token");
 
@@ -97,10 +97,10 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, co
 
     // Guarda el borrador para poder previsualizarlo antes de aprobar
     const id = crypto.randomUUID();
-    const store = getStore("ericson-drafts");
+    const store = getBlobStore("ericson-drafts");
     await store.setJSON(id, { keyword, ...article, status: "pending" });
 
-    const siteUrl = process.env.URL || process.env.DEPLOY_PRIME_URL || "";
+    const siteUrl = process.env.BLOG_BASE_URL || process.env.URL || process.env.DEPLOY_PRIME_URL || "";
     const preview_url = `${siteUrl}/.netlify/functions/preview-article?id=${id}`;
     const approve_token = sign(id, "approve");
     const discard_token = sign(id, "discard");

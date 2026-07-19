@@ -7,7 +7,7 @@
 //
 // GET /.netlify/functions/preview-article?id=<uuid>
 
-const { getStore } = require("@netlify/blobs");
+const { getBlobStore } = require("./_lib/store");
 
 exports.handler = async (event) => {
   const id = event.queryStringParameters && event.queryStringParameters.id;
@@ -15,7 +15,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: "Falta el parámetro 'id'" };
   }
 
-  const store = getStore("ericson-drafts");
+  const store = getBlobStore("ericson-drafts");
   const draft = await store.get(id, { type: "json" });
 
   if (!draft) {

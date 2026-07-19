@@ -2,10 +2,10 @@
 //
 // Lista todos los artículos publicados en blog.ericson-laboratoire.com.mx/blog
 
-const { getStore } = require("@netlify/blobs");
+const { getBlobStore } = require("./_lib/store");
 
 exports.handler = async () => {
-  const store = getStore("ericson-published");
+  const store = getBlobStore("ericson-published");
   const indexRaw = await store.get("_index", { type: "json" });
   const index = indexRaw || [];
 

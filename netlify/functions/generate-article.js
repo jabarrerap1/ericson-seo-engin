@@ -35,23 +35,31 @@ exports.handler = async (event) => {
   const store = getBlobStore("ericson-drafts");
   await store.setJSON(id, { keyword, status: "generating" });
 
-  const siteUrl = process.env.BLOG_BASE_URL || process.env.URL || process.env.DEPLOY_PRIME_URL || "";
-  const preview_url = `${siteUrl}/.netlify/functions/preview-article?id=${id}`;
+  const publicUrl = process.env.BLOG_BASE_URL || process.env.URL || process.env.DEPLOY_PRIME_URL || "";
+  const internalUrl = process.env.URL || process.env.DEPLOY_PRIME_URL || "";
+
+  const preview_url = `${publicUrl}/.netlify/functions/preview-article?id=${id}`;
   const approve_token = sign(id, "approve");
   const discard_token = sign(id, "discard");
-  const approve_url = `${siteUrl}/.netlify/functions/approve-article?id=${id}&token=${approve_token}`;
-  const discard_url = `${siteUrl}/.netlify/functions/discard-article?id=${id}&token=${discard_token}`;
+  const approve_url = `${publicUrl}/.netlify/functions/approve-article?id=${id}&token=${approve_token}`;
+  const discard_url = `${publicUrl}/.netlify/functions/discard-article?id=${id}&token=${discard_token}`;
 
-  // Dispara la generación real en segundo plano (no esperamos a que termine)
-  const bgUrl = `${siteUrl}/.netlify/functions/generate-article-background`;
-  fetch(bgUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, keyword, volume }),
-  }).catch(() => {
+  // Dispara la generación real en segundo plano (no esperamos a que termine).
+  // IMPORTANTE: usa internalUrl (el dominio de Netlify que siempre funciona),
+  // no publicUrl — si BLOG_BASE_URL apunta a un subdominio cuyo DNS/SSL aún
+  // no está verificado, esta llamada fallaría en silencio y el artículo
+  // nunca se generaría.
+  const bgUrl = `${internalUrl}/.netlify/functions/generate-article-background`;
+  try {
+    await fetch(bgUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, keyword, volume }),
+    });
+  } catch (e) {
     // Si falla el disparo, el borrador se queda en "generating";
     // preview-article lo reportará como pendiente.
-  });
+  }
 
   return {
     statusCode: 200,

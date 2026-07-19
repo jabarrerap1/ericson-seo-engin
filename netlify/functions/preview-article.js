@@ -26,6 +26,24 @@ exports.handler = async (event) => {
     };
   }
 
+  if (draft.status === "generating") {
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8", "Refresh": "5" },
+      body: `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="5"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Generando artículo…</title>
+      <style>body{font-family:sans-serif;background:#f5f0eb;color:#1a1916;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;}</style></head>
+      <body><div>✍️ Todavía estamos escribiendo este artículo (tarda ~20-30 segundos). Esta página se actualiza sola cada 5 segundos.</div></body></html>`,
+    };
+  }
+
+  if (draft.status === "error") {
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+      body: `<h1>Hubo un error generando este artículo</h1><p>${escapeHtml(draft.error || "")}</p>`,
+    };
+  }
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>

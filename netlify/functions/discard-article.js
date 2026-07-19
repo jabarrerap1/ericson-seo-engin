@@ -5,7 +5,7 @@
 //
 // GET /.netlify/functions/discard-article?id=<uuid>&token=<hmac>
 
-const { getStore } = require("@netlify/blobs");
+const { getBlobStore } = require("./_lib/store");
 const { verify } = require("./_lib/token");
 
 exports.handler = async (event) => {
@@ -19,7 +19,7 @@ exports.handler = async (event) => {
     return htmlResponse(403, "Este link no es válido o ya expiró.");
   }
 
-  const store = getStore("ericson-drafts");
+  const store = getBlobStore("ericson-drafts");
   await store.delete(id);
 
   return htmlResponse(200, "🗑️ Artículo descartado. No se publicó nada.", true);

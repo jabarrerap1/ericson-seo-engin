@@ -7,7 +7,7 @@
 //
 // GET /blog/:slug  (redirigido internamente desde netlify.toml)
 
-const { getStore } = require("@netlify/blobs");
+const { getBlobStore } = require("./_lib/store");
 
 exports.handler = async (event) => {
   const slug = (event.path || "").split("/").filter(Boolean).pop();
@@ -15,7 +15,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: "Falta el slug del artículo" };
   }
 
-  const store = getStore("ericson-published");
+  const store = getBlobStore("ericson-published");
   const post = await store.get(slug, { type: "json" });
 
   if (!post) {

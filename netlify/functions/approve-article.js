@@ -7,7 +7,7 @@
 //
 // GET /.netlify/functions/approve-article?id=<uuid>&token=<hmac>
 
-const { getStore } = require("@netlify/blobs");
+const { getBlobStore } = require("./_lib/store");
 const { verify } = require("./_lib/token");
 
 exports.handler = async (event) => {
@@ -21,7 +21,7 @@ exports.handler = async (event) => {
     return htmlResponse(403, "Este link no es válido o ya expiró.");
   }
 
-  const draftsStore = getStore("ericson-drafts");
+  const draftsStore = getBlobStore("ericson-drafts");
   const draft = await draftsStore.get(id, { type: "json" });
 
   if (!draft) {
@@ -34,7 +34,7 @@ exports.handler = async (event) => {
   const { title, article_html, slug, meta_description, keyword } = draft;
 
   try {
-    const publishedStore = getStore("ericson-published");
+    const publishedStore = getBlobStore("ericson-published");
 
     // Evita colisión de slugs
     let finalSlug = slug;

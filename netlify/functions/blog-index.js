@@ -27,6 +27,7 @@ exports.handler = async () => {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="google-site-verification" content="AdoQ9BwuVYjRn1UxsQ7n5ah2YtXbggBQBQfV2yp1abk" />
 <title>Blog Profesional | Ericson Laboratoire México</title>
 <meta name="description" content="Cosmética profesional francesa, protocolos y noticias de Ericson Laboratoire México." />
 <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -31,6 +31,17 @@ exports.handler = async (event) => {
     );
   }
 
+  if (draft.status === "generating") {
+    return htmlResponse(
+      409,
+      "⏳ Este artículo todavía se está generando. Espera unos segundos y vuelve a abrir el link de aprobación desde el correo."
+    );
+  }
+
+  if (draft.status === "error") {
+    return htmlResponse(500, `Hubo un error generando este artículo: ${draft.error || ""}`);
+  }
+
   const { title, article_html, slug, meta_description, keyword } = draft;
 
   try {

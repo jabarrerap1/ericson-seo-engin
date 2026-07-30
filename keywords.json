@@ -3,23 +3,118 @@
     {
       "keyword": "cosmética profesional francesa para spas en México",
       "volume": 1300,
-      "used": false
+      "used": true
     },
     {
       "keyword": "cosmecéutica profesional de alta gama",
       "volume": 900,
-      "used": false
+      "used": true
     },
     {
       "keyword": "protocolos faciales no invasivos para clínicas estéticas",
       "volume": 1600,
-      "used": false
+      "used": true
     },
     {
       "keyword": "cómo elegir cosmética profesional para cabina",
       "volume": 1200,
+      "used": true
+    },
+    {
+      "keyword": "tratamiento profesional para piel sensible y rosácea",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "protocolo antiedad para cabina de estética",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "tratamiento para piel grasa y acné en cabina",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "exfoliación profesional con ácidos AHA para esteticistas",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "tratamiento profesional para contorno de ojos",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "lifting facial no quirúrgico en cabina de estética",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "hidratación profunda profesional para piel deshidratada",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "oxigenación facial tratamiento profesional",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "tratamiento corporal reafirmante para spa",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "distribuidor de cosmética profesional francesa en México",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "requisitos NOM-141 para venta de cosméticos en México",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "aviso de funcionamiento COFEPRIS para spa o clínica estética",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "franquicia o distribución de línea cosmética profesional",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "capacitación en protocolos faciales para esteticistas",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "diferencia entre cosmética profesional y de venta al público",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "activos hidro-moleculares en cosmética profesional",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "tratamiento facial compatible con radiofrecuencia y electroestimulación",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "cómo aumentar la rentabilidad de tu cabina de estética",
+      "volume": null,
+      "used": false
+    },
+    {
+      "keyword": "protocolo despigmentante para manchas en la piel",
+      "volume": null,
       "used": false
     }
   ],
-  "notes": "Agrega aquí nuevas keywords conforme las identifiques."
+  "notes": "Las primeras 4 tienen volumen real (Soro). Las nuevas no tienen datos de volumen verificados — se priorizaron por relevancia temática a las líneas de Ericson Laboratoire y patrones de búsqueda típicos del sector. Agrega más aquí conforme se necesiten."
 }

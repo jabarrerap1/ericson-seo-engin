@@ -5,6 +5,11 @@
 
 [functions]
   node_bundler = "esbuild"
+  # Dispara la generación semanal de artículos (reemplaza al workflow externo
+# de n8n que corría en Railway). Lunes 8:00am hora Ciudad de México
+# (14:00 UTC, México no observa horario de verano).
+[functions."weekly-article-trigger"]
+  schedule = "0 14 * * 1"
 
 [[redirects]]
   from = "/sitemap.xml"

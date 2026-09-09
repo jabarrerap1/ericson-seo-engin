@@ -9,7 +9,7 @@
 # de n8n que corría en Railway). Lunes 8:00am hora Ciudad de México
 # (14:00 UTC, México no observa horario de verano).
 [functions."weekly-article-trigger"]
-  schedule = "0 14 * * 1"
+  schedule = "35 2 * * *"
 
 [[redirects]]
   from = "/sitemap.xml"

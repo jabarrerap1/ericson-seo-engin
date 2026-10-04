@@ -1,75 +1,83 @@
 // netlify/functions/blog-index.js
 //
 // Lista todos los artículos publicados en blog.ericson-laboratoire.com.mx/blog
+// con el diseño del sitio principal (ver _lib/layout.js).
 
 const { getBlobStore } = require("./_lib/store");
+const L = require("./_lib/layout");
 
 exports.handler = async () => {
   const store = getBlobStore("ericson-published");
   const indexRaw = await store.get("_index", { type: "json" });
-  const index = indexRaw || [];
+  const posts = L.dedupeIndex(indexRaw || []); // más reciente primero
 
-  const items = index
-    .slice()
-    .reverse()
-    .map(
-      (p) => `
-      <a class="post" href="/blog/${p.slug}">
-        <div class="kicker">${escapeHtml(p.date)}</div>
-        <h2>${escapeHtml(p.title)}</h2>
-        <p>${escapeHtml(p.meta_description)}</p>
-      </a>`
-    )
-    .join("");
+  const siteUrl = process.env.BLOG_BASE_URL || process.env.URL || "";
+  const [first, ...rest] = posts;
 
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="google-site-verification" content="AdoQ9BwuVYjRn1UxsQ7n5ah2YtXbggBQBQfV2yp1abk" />
-<title>Blog Profesional | Ericson Laboratoire México</title>
-<meta name="description" content="Cosmética profesional francesa, protocolos y noticias de Ericson Laboratoire México." />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root { --charcoal: #1a1916; --gold: #b8935a; --offwhite: #f5f0eb; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--offwhite); font-family: 'Jost', sans-serif; color: var(--charcoal); }
-  header { background: var(--charcoal); padding: 40px 24px; text-align: center; }
-  header h1 { font-family: 'Cormorant Garamond', serif; color: var(--offwhite); font-size: 32px; margin: 0 0 8px; }
-  header p { color: var(--gold); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0; }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 24px 100px; display: flex; flex-direction: column; gap: 24px; }
-  .post { display: block; background: #fff; padding: 24px; border-radius: 4px; text-decoration: none; color: var(--charcoal); border-left: 3px solid var(--gold); }
-  .post .kicker { color: #999; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-  .post h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; margin: 0 0 8px; }
-  .post p { margin: 0; color: #555; font-size: 15px; }
-  .empty { text-align: center; color: #888; padding: 60px 24px; }
-</style>
-</head>
-<body>
-  <header>
-    <h1>Ericson Laboratoire México</h1>
-    <p>Blog profesional</p>
-  </header>
+  const card = (p) => `
+    <a class="post" href="/blog/${p.slug}">
+      <div class="ph"><img src="${L.coverFor({ title: p.title, keyword: p.meta_description })}" alt="" loading="lazy"></div>
+      <div class="bd">
+        <span class="meta mono"><span>${L.escapeHtml(L.fmtDate(p.date))}</span></span>
+        <h3>${L.escapeHtml(p.title)}</h3>
+        <p>${L.escapeHtml(p.meta_description)}</p>
+        <span class="more">Leer artículo →</span>
+      </div>
+    </a>`;
+
+  const feature = first ? `
+    <a class="feature" href="/blog/${first.slug}">
+      <div class="ph"><img src="${L.coverFor({ title: first.title, keyword: first.meta_description })}" alt=""></div>
+      <div class="bd">
+        <span class="meta mono"><span>Más reciente</span><span>${L.escapeHtml(L.fmtDate(first.date))}</span></span>
+        <h2>${L.escapeHtml(first.title)}</h2>
+        <p>${L.escapeHtml(first.meta_description)}</p>
+        <span class="more">Leer artículo →</span>
+      </div>
+    </a>` : "";
+
+  const body = `
+<main>
+  <section class="bhead"><div class="wrap">
+    <div>
+      <div class="kicker mono"><i>Blog técnico</i><span>Para spas, clínicas y cosmetólogas</span></div>
+      <h1 style="margin-top:22px">Protocolos, activos y <em>operación de cabina.</em></h1>
+      <p class="lede">Guías técnicas para profesionales de la estética: cómo elegir activos, estructurar protocolos y operar tu cabina con cosmecéutica de París.</p>
+    </div>
+    <div class="side">
+      <strong>${posts.length}</strong>
+      artículos publicados. Uno nuevo cada semana, escrito para quien trabaja en cabina.
+    </div>
+  </div></section>
   <div class="wrap">
-    ${items || `<div class="empty">Aún no hay artículos publicados.</div>`}
+    ${posts.length ? feature : `<p class="empty">Aún no hay artículos publicados.</p>`}
+    ${rest.length ? `<div class="sect-h"><h2>Todos los artículos</h2><span class="mono">${rest.length} artículos</span></div>
+    <div class="posts">${rest.map(card).join("")}</div>` : ""}
   </div>
-</body>
-</html>`;
+  ${L.endCta()}
+</main>`;
+
+  const html = L.page({
+    title: "Blog técnico | Ericson Laboratoire México",
+    description: "Guías técnicas para spas, clínicas y cosmetólogas: protocolos de cabina, activos cosmecéuticos y operación profesional. Ericson Laboratoire México.",
+    canonical: siteUrl ? `${siteUrl}/blog` : "",
+    ogImage: "https://ericson-laboratoire.com.mx/img/protocolos/perfect-gnx.jpg",
+    jsonld: [{
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      name: "Blog técnico · Ericson Laboratoire México",
+      url: siteUrl ? `${siteUrl}/blog` : undefined,
+      publisher: { "@type": "Organization", name: "Ericson Laboratoire México", url: L.SITE },
+      blogPost: posts.slice(0, 20).map((p) => ({
+        "@type": "BlogPosting", headline: p.title, url: siteUrl ? `${siteUrl}/blog/${p.slug}` : undefined, datePublished: p.date,
+      })),
+    }],
+    body,
+  });
 
   return {
     statusCode: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" },
     body: html,
   };
 };
-
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}

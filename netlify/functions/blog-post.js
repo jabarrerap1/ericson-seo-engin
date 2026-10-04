@@ -1,90 +1,146 @@
 // netlify/functions/blog-post.js
 //
 // Sirve un artículo YA PUBLICADO como página pública e indexable en
-// blog.ericson-laboratoire.com.mx/blog/<slug>. Reemplaza la necesidad de
-// WordPress: el sitio principal es HTML estático, así que el blog vive
-// aquí, en su propio subdominio servido por Netlify Functions.
+// blog.ericson-laboratoire.com.mx/blog/<slug>, con el diseño del sitio
+// principal (ver _lib/layout.js).
 //
 // GET /blog/:slug  (redirigido internamente desde netlify.toml)
 
 const { getBlobStore } = require("./_lib/store");
+const L = require("./_lib/layout");
 
 exports.handler = async (event) => {
   const slug = (event.path || "").split("/").filter(Boolean).pop();
-  if (!slug) {
-    return { statusCode: 400, body: "Falta el slug del artículo" };
-  }
-
   const store = getBlobStore("ericson-published");
-  const post = await store.get(slug, { type: "json" });
+  const siteUrl = process.env.BLOG_BASE_URL || process.env.URL || "";
+
+  const post = slug ? await store.get(slug, { type: "json" }) : null;
 
   if (!post) {
+    const body = `<main><section class="ahead"><div class="wrap">
+      <p class="mono" style="color:var(--oxide)">Error 404</p>
+      <h1 style="margin-top:16px">No encontramos <em>este artículo.</em></h1>
+      <p class="lede">Puede que la dirección esté mal escrita o que el artículo se haya retirado.</p>
+      <p style="margin-top:28px"><a class="btn" href="/blog">Ver todos los artículos</a></p>
+    </div></section></main>`;
     return {
       statusCode: 404,
       headers: { "Content-Type": "text/html; charset=utf-8" },
-      body: `<h1>Artículo no encontrado</h1><p>Puede que la URL esté mal escrita.</p>`,
+      body: L.page({ title: "Artículo no encontrado | Ericson Laboratoire México", description: "", body }),
     };
   }
 
-  const siteUrl = process.env.BLOG_BASE_URL || process.env.URL || "";
   const canonical = `${siteUrl}/blog/${slug}`;
+  const proto = L.mainProtocol(post);
+  const cover = L.coverFor(post);
+  const minutes = L.readingMinutes(post.article_html);
+  const date = post.published_at || "";
 
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${escapeHtml(post.title)} | Ericson Laboratoire México</title>
-<meta name="description" content="${escapeHtml(post.meta_description)}" />
-<link rel="canonical" href="${canonical}" />
-<meta property="og:title" content="${escapeHtml(post.title)}" />
-<meta property="og:description" content="${escapeHtml(post.meta_description)}" />
-<meta property="og:type" content="article" />
-<meta property="og:url" content="${canonical}" />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root { --charcoal: #1a1916; --gold: #b8935a; --offwhite: #f5f0eb; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--offwhite); font-family: 'Jost', sans-serif; color: var(--charcoal); line-height: 1.7; }
-  header { background: var(--charcoal); padding: 18px 24px; text-align: center; }
-  header a { color: var(--gold); text-decoration: none; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }
-  .wrap { max-width: 680px; margin: 0 auto; padding: 48px 24px 100px; }
-  .kicker { color: var(--gold); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
-  h1 { font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 600; margin: 0 0 24px; }
-  .content h2 { font-family: 'Cormorant Garamond', serif; font-size: 26px; margin-top: 40px; }
-  .content h3 { font-family: 'Cormorant Garamond', serif; font-size: 20px; }
-  .content p, .content li { font-size: 16px; color: #2c2b28; }
-  .cta { margin-top: 56px; padding: 28px; background: var(--charcoal); color: var(--offwhite); text-align: center; border-radius: 4px; }
-  .cta a { color: var(--gold); font-weight: 500; text-decoration: none; }
-</style>
-</head>
-<body>
-  <header><a href="/blog">← Ericson Laboratoire México · Blog Profesional</a></header>
-  <div class="wrap">
-    <div class="kicker">Cosmecéutica Profesional</div>
-    <h1>${escapeHtml(post.title)}</h1>
-    <div class="content">${post.article_html}</div>
-    <div class="cta">
-      ¿Eres profesional de la estética y quieres distribuir Ericson Laboratoire?<br/>
-      <a href="https://wa.me/525559898827?text=Quiero%20información%20sobre%20Ericson%20Laboratoire">Habla con nosotros por WhatsApp →</a>
+  // Índice de contenidos: agrega id a cada <h2>.
+  const toc = [];
+  let content = String(post.article_html || "").replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (m, attrs, inner) => {
+    const text = L.stripTags(inner);
+    const id = "s-" + (toc.length + 1);
+    toc.push({ id, text });
+    const clean = attrs.replace(/\sid="[^"]*"/i, "");
+    return `<h2${clean} id="${id}">${inner}</h2>`;
+  });
+  content = L.linkProtocols(content);
+
+  // Relacionados: los 3 más recientes distintos a este.
+  const index = L.dedupeIndex((await store.get("_index", { type: "json" })) || []);
+  const related = index.filter((p) => p.slug !== slug).slice(0, 3);
+
+  const body = `
+<main>
+  <article>
+    <header class="ahead"><div class="wrap">
+      <nav class="crumbs mono" aria-label="Ruta"><a href="${L.SITE}/">Inicio</a><span>/</span><a href="/blog">Blog técnico</a></nav>
+      <div class="kicker mono"><i>Cosmecéutica profesional</i><span>${L.escapeHtml(proto.name)}</span></div>
+      <h1 style="margin-top:20px">${L.escapeHtml(post.title)}</h1>
+      ${post.meta_description ? `<p class="lede">${L.escapeHtml(post.meta_description)}</p>` : ""}
+      <div class="meta mono"><span>${L.escapeHtml(L.fmtDate(date))}</span><span>${minutes} min de lectura</span><span>Ericson Laboratoire México</span></div>
+      <figure class="cover"><img src="${cover}" alt="Protocolo ${L.escapeHtml(proto.name)} en cabina"><figcaption>Protocolo ${L.escapeHtml(proto.name)}</figcaption></figure>
+    </div></header>
+
+    <div class="wrap agrid">
+      <nav class="toc" aria-label="Contenido">
+        ${toc.length ? `<span class="mono">En este artículo</span><ol>${toc.map((t) => `<li><a href="#${t.id}">${L.escapeHtml(t.text)}</a></li>`).join("")}</ol>` : ""}
+      </nav>
+
+      <div class="content">${content}</div>
+
+      <aside class="aside">
+        <div class="box">
+          <span class="mono">Protocolo relacionado</span>
+          <h4>${L.escapeHtml(proto.name)}</h4>
+          <p>Pasos, tiempos y productos de cada fase del protocolo en cabina.</p>
+          <a class="btn ghost" href="https://protocolos.ericson-laboratoire.com.mx/?p=${proto.id}&utm_source=blog&utm_medium=sidebar">Ver protocolo paso a paso</a>
+        </div>
+        <div class="box dark">
+          <span class="mono">Certificación incluida</span>
+          <h4>Tu equipo, certificado en cada protocolo</h4>
+          <p>Presencial con cita o por Zoom. Sin mínimo de compra para empezar.</p>
+          <a class="btn" href="https://wa.me/${L.WA}?text=${encodeURIComponent("Hola, leí \"" + post.title + "\" y quiero información sobre la certificación Ericson")}">Hablar con una especialista</a>
+        </div>
+        <div class="box">
+          <span class="mono">Descarga gratuita</span>
+          <h4>Guía de certificación por protocolo</h4>
+          <p>Los 16 protocolos, sus tiempos y productos, y cómo certificamos a tu equipo. PDF de 13 páginas.</p>
+          <a class="btn ghost" href="${L.SITE}/descargas/guia-certificacion-ericson.pdf">Descargar guía (PDF)</a>
+        </div>
+      </aside>
     </div>
-  </div>
-</body>
-</html>`;
+  </article>
+
+  ${related.length ? `<section class="wrap related" aria-label="Más artículos">
+    <div class="sect-h" style="margin-top:40px"><h2>Sigue leyendo</h2><a class="mono" href="/blog" style="color:var(--mute)">Todos los artículos →</a></div>
+    <div class="posts">${related.map((p) => `
+      <a class="post" href="/blog/${p.slug}">
+        <div class="ph"><img src="${L.coverFor({ title: p.title, keyword: p.meta_description })}" alt="" loading="lazy"></div>
+        <div class="bd"><span class="meta mono"><span>${L.escapeHtml(L.fmtDate(p.date))}</span></span>
+          <h3>${L.escapeHtml(p.title)}</h3><span class="more">Leer artículo →</span></div>
+      </a>`).join("")}</div>
+  </section>` : ""}
+
+  ${L.endCta()}
+</main>`;
+
+  const html = L.page({
+    title: `${post.title} | Ericson Laboratoire México`,
+    description: post.meta_description || "",
+    canonical,
+    ogImage: cover,
+    ogType: "article",
+    jsonld: [
+      {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        headline: post.title,
+        description: post.meta_description || undefined,
+        image: cover,
+        datePublished: date || undefined,
+        dateModified: date || undefined,
+        mainEntityOfPage: canonical,
+        author: { "@type": "Organization", name: "Ericson Laboratoire México", url: L.SITE },
+        publisher: { "@type": "Organization", name: "Ericson Laboratoire México", url: L.SITE },
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Inicio", item: L.SITE + "/" },
+          { "@type": "ListItem", position: 2, name: "Blog técnico", item: `${siteUrl}/blog` },
+          { "@type": "ListItem", position: 3, name: post.title, item: canonical },
+        ],
+      },
+    ],
+    body,
+  });
 
   return {
     statusCode: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" },
     body: html,
   };
 };
-
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}

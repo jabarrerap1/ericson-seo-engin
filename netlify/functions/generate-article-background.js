@@ -17,6 +17,7 @@
 // con aprobación manual, define AUTO_PUBLISH=false en Netlify.
 
 const { getBlobStore } = require("./_lib/store");
+const { SYSTEM_PROMPT } = require("./_lib/brand-context");
 
 exports.handler = async (event) => {
   let id, keyword, volume;
@@ -34,29 +35,11 @@ exports.handler = async (event) => {
 
   const store = getBlobStore("ericson-drafts");
 
-  const systemPrompt = `Eres el redactor de contenido SEO de Ericson Laboratoire México, distribuidor exclusivo de una cosmecéutica profesional francesa de alta gama para spas, clínicas de medicina estética y profesionales de cabina.
+  const systemPrompt = SYSTEM_PROMPT;
 
-VOZ DE MARCA:
-- Tono: experto, clínico pero cálido, nunca vendedor agresivo. Hablas a profesionales (esteticistas, dermatólogos, dueños de spa), no a consumidor final.
-- Vocabulario técnico correcto (activos, protocolos, pathologies cutáneas) pero explicado con claridad.
-- Nunca haces afirmaciones médicas que requieran receta o diagnóstico — Ericson Laboratoire es cosmética profesional, no producto farmacéutico. Evita lenguaje que sugiera curar enfermedades (cumple con NOM-141-SSA1/SCFI-2012).
-- Identidad visual de referencia (para describir imágenes/CTAs): charcoal #1a1916 y dorado #b8935a, tipografías Cormorant Garamond (títulos) + Jost (cuerpo).
-- Siempre que sea natural, menciona que Ericson Laboratoire es el distribuidor exclusivo autorizado en México y que los productos están dirigidos a profesionales (no venta directa a público).
-
-FORMATO DE SALIDA:
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, con esta estructura exacta:
-{
-  "title": "Título SEO (máx 60 caracteres, incluye la keyword principal)",
-  "meta_description": "Meta descripción (máx 155 caracteres, incluye keyword y llamada a la acción)",
-  "slug": "slug-en-minusculas-sin-acentos",
-  "article_html": "Artículo completo en HTML semántico (h2, h3, p, ul/li). 900-1200 palabras. Debe incluir: introducción, 3-4 secciones con subtítulos, y una sección final de cierre invitando a contactar a Ericson Laboratoire como distribuidor profesional. NO incluyas <html>, <head> ni <body>, solo el contenido del artículo.",
-  "image_alt": "Descripción para generar/alt-text de una imagen destacada del artículo",
-  "internal_link_suggestions": ["2-3 sugerencias de páginas internas a las que enlazar, ej: /pathologies, /distribuidores, /catalogo"]
-}`;
-
-  const userPrompt = `Escribe un artículo SEO optimizado para la keyword: "${keyword}"${
+  const userPrompt = `Escribe el artículo de esta semana para la keyword: "${keyword}"${
     volume ? ` (búsquedas mensuales aproximadas: ${volume})` : ""
-  }.`;
+  }. Elige los protocolos de la lista que mejor respondan a esa búsqueda y sigue todas las reglas.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -111,6 +94,8 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, co
       return;
     }
 
+    article.article_html = cleanArticleHtml(article.article_html, article.title);
+
     await store.setJSON(id, { keyword, ...article, status: "ready" });
 
     if (process.env.AUTO_PUBLISH === "false") {
@@ -124,7 +109,7 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, co
       `✅ Nuevo artículo publicado en el blog: ${article.title}`,
       `<p>Se publicó automáticamente el artículo de esta semana.</p>
        <p><strong>${escapeHtml(article.title)}</strong><br/>Keyword: ${escapeHtml(keyword)}</p>
-       <p><a href="${liveUrl}" style="color:#b8935a;font-weight:600;">Ver artículo en vivo</a></p>`
+       <p><a href="${liveUrl}" style="color:#8C3B1F;font-weight:600;">Ver artículo en vivo</a></p>`
     );
   } catch (err) {
     console.error(`generate-article-background: ${err.stack || err.message}`);
@@ -171,6 +156,23 @@ async function publishDraft(id, draft) {
   return `${siteUrl}/blog/${finalSlug}`;
 }
 
+// Red de seguridad sobre el HTML que regresa Claude: quita un <h1> o un primer
+// <h2> que repita el título (la página ya lo muestra) y frases que contradicen
+// el modelo comercial actual (la línea para casa sí se vende al público a
+// través de las cabinas).
+function cleanArticleHtml(html, title) {
+  let out = String(html || "").trim();
+  out = out.replace(/<h1[^>]*>[\s\S]*?<\/h1>/gi, "");
+  const first = out.match(/^\s*<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  if (first) {
+    const norm = (s) => String(s).replace(/<[^>]+>/g, "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+    const a = norm(first[1]), b = norm(title || "");
+    if (b && (a.startsWith(b.slice(0, 25)) || b.startsWith(a.slice(0, 25)))) out = out.slice(first[0].length).trim();
+  }
+  out = out.replace(/[^.<>]*no se venden? (?:al|a) p[uú]blico(?: en)? general[^.<>]*\./gi, "");
+  return out;
+}
+
 function slugify(s) {
   return String(s || "articulo")
     .normalize("NFD")
@@ -206,9 +208,9 @@ async function notify(subject, innerHtml) {
         sender: { email: senderEmail, name: senderName },
         to: [{ email: to }],
         subject,
-        htmlContent: `<div style="font-family:Arial,sans-serif;background:#f5f0eb;padding:24px;color:#1a1916;">
-          <div style="max-width:520px;margin:0 auto;background:#fff;border-top:3px solid #b8935a;padding:28px;">
-          <p style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#b8935a;margin:0 0 8px;">Ericson Laboratoire · Blog</p>
+        htmlContent: `<div style="font-family:Arial,sans-serif;background:#F3F1EC;padding:24px;color:#121212;">
+          <div style="max-width:520px;margin:0 auto;background:#fff;border-top:3px solid #8C3B1F;padding:28px;">
+          <p style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#8C3B1F;margin:0 0 8px;">Ericson Laboratoire · Blog</p>
           ${innerHtml}</div></div>`,
       }),
     });
